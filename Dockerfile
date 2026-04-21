@@ -3,8 +3,11 @@ FROM php:8.2-apache
 # Install mysqli
 RUN docker-php-ext-install mysqli
 
-# Set working directory explicitly
-WORKDIR /var/www/html
+# Enable PHP in Apache explicitly
+RUN a2enmod php8.2
 
-# Copy ONLY your API files here
-COPY api.php /var/www/html/
+# Copy files
+COPY . /var/www/html/
+
+# Set correct permissions
+RUN chown -R www-data:www-data /var/www/html
