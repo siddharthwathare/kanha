@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: billing-api
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
