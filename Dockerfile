@@ -3,8 +3,8 @@ FROM php:8.2-apache
 # Install mysqli
 RUN docker-php-ext-install mysqli
 
-# Enable Apache rewrite (good practice)
-RUN a2enmod rewrite
+# Set working directory explicitly
+WORKDIR /var/www/html
 
-# Copy files to Apache root
-COPY . /var/www/html/
+# Copy ONLY your API files here
+COPY api.php /var/www/html/
