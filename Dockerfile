@@ -1,10 +1,10 @@
-FROM php:8.2-cli
+FROM php:8.2-apache
 
-# Install mysqli extension
+# Install mysqli
 RUN docker-php-ext-install mysqli
 
-WORKDIR /app
+# Enable Apache rewrite (good practice)
+RUN a2enmod rewrite
 
-COPY . .
-
-CMD ["php", "-S", "0.0.0.0:10000", "index.php"]
+# Copy files to Apache root
+COPY . /var/www/html/
