@@ -50,10 +50,33 @@ if ($action == "products") {
     exit;
 }
 // =====================
-// 👤 FETCH USERS
+// =====================
+// 👤 FETCH USER BY USERNAME
 // =====================
 if ($action == "users") {
 
+    $username = $_GET['username'] ?? null;
+
+    // If username is provided → fetch specific user
+    if ($username) {
+
+        $stmt = $conn->prepare("SELECT storename FROM users WHERE username = ?");
+        $stmt->bind_param("s", $username); // "s" = string
+
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        if ($result->num_rows === 0) {
+            echo json_encode(["error" => "User not found"]);
+            exit;
+        }
+
+        $data = $result->fetch_assoc();
+        echo json_encode($data);
+        exit;
+    }
+
+    // Fallback → fetch all users
     $result = $conn->query("SELECT * FROM users");
 
     if (!$result) {
