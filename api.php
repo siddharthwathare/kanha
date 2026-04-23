@@ -60,7 +60,7 @@ if ($action == "users") {
     // If username is provided → fetch specific user
     if ($username) {
 
-        $stmt = $conn->prepare("SELECT storename FROM users WHERE username = ?");
+        $stmt = $conn->prepare("SELECT * FROM users WHERE username = ?");
         $stmt->bind_param("s", $username); // "s" = string
 
         $stmt->execute();
