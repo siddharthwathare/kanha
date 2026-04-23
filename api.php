@@ -49,7 +49,27 @@ if ($action == "products") {
     echo json_encode($data);
     exit;
 }
+// =====================
+// 👤 FETCH USERS
+// =====================
+if ($action == "users") {
 
+    $result = $conn->query("SELECT * FROM users");
+
+    if (!$result) {
+        echo json_encode(["error" => $conn->error]);
+        exit;
+    }
+
+    $data = [];
+
+    while ($row = $result->fetch_assoc()) {
+        $data[] = $row;
+    }
+
+    echo json_encode($data);
+    exit;
+}
 // =====================
 // 💰 ADD CREDIT
 // =====================
