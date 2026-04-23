@@ -33,6 +33,33 @@ if ($conn->connect_error) {
 // =====================
 if ($action == "products") {
 
+    $user_id = $_GET['user_id'] ?? null;
+
+    // If user_id is provided → filter products
+    if ($user_id) {
+
+        $stmt = $conn->prepare("SELECT * FROM products WHERE user_id = ?");
+        $stmt->bind_param("i", $user_id); // "i" = integer
+
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        if ($result->num_rows === 0) {
+            echo json_encode([]);
+            exit;
+        }
+
+        $data = [];
+
+        while ($row = $result->fetch_assoc()) {
+            $data[] = $row;
+        }
+
+        echo json_encode($data);
+        exit;
+    }
+
+    // Fallback → fetch all products
     $result = $conn->query("SELECT * FROM products");
 
     if (!$result) {
