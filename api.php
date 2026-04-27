@@ -121,27 +121,45 @@ if ($action == "users") {
     exit;
 }
 // =====================
-// 💰 ADD CREDIT
+// 💳 FETCH CUSTOMER CREDITS SUMMARY
 // =====================
-if ($action == "addCredit") {
+if ($action == "credits") {
 
-    $customer_id = $_POST['customer_id'] ?? null;
-    $amount = $_POST['amount'] ?? null;
+    $user_id = $_GET['user_id'] ?? null;
 
-    if (!$customer_id || !$amount) {
-        echo json_encode(["error" => "Missing parameters"]);
+    if (!$user_id) {
+        echo json_encode(["error" => "Missing user_id"]);
         exit;
     }
 
-    $stmt = $conn->prepare("UPDATE credits SET balance = balance + ? WHERE customer_id = ?");
-    $stmt->bind_param("di", $amount, $customer_id);
+    $stmt = $conn->prepare("
+        SELECT 
+            c.id, 
+            c.name, 
+            IFNULL(cs.total_due, 0) AS total_due
+        FROM customers c
+        LEFT JOIN credits_summary cs
+            ON c.id = cs.customer_id
+        WHERE c.user_id = ?
+    ");
 
-    if ($stmt->execute()) {
-        echo json_encode(["success" => true]);
-    } else {
-        echo json_encode(["error" => $stmt->error]);
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+
+    $result = $stmt->get_result();
+
+    if (!$result) {
+        echo json_encode(["error" => $conn->error]);
+        exit;
     }
 
+    $data = [];
+
+    while ($row = $result->fetch_assoc()) {
+        $data[] = $row;
+    }
+
+    echo json_encode($data);
     exit;
 }
 
