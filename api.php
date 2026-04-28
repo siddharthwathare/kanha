@@ -242,6 +242,81 @@ if ($action == "addCustomerWithCredit") {
     exit;
 }
 // =====================
+// ➕ ADD TRANSACTION + UPDATE CREDIT
+// =====================
+if ($action == "addTransaction") {
+
+    // 🔹 Read JSON input
+    $input = json_decode(file_get_contents("php://input"), true);
+
+    // 🔹 Get values (supports JSON + form-data)
+    $customer_id = $_POST['customer_id'] ?? $input['customer_id'] ?? null;
+    $user_id = $_POST['user_id'] ?? $input['user_id'] ?? null;
+    $amount = $_POST['amount'] ?? $input['amount'] ?? null;
+    $bill_json = $_POST['bill_json'] ?? $input['bill_json'] ?? null;
+
+    // 🔹 Validate
+    if (!$customer_id || !$user_id || !$amount) {
+        echo json_encode([
+            "success" => false,
+            "error" => "Missing required fields"
+        ]);
+        exit;
+    }
+
+    // 🔹 Start transaction
+    $conn->begin_transaction();
+
+    try {
+
+        // 1️⃣ Insert into transactions
+        $stmt1 = $conn->prepare("
+            INSERT INTO transactions
+            (customer_id, user_id, amount, bill_json)
+            VALUES (?, ?, ?, ?)
+        ");
+
+        $stmt1->bind_param("iids", $customer_id, $user_id, $amount, $bill_json);
+
+        if (!$stmt1->execute()) {
+            throw new Exception($stmt1->error);
+        }
+
+        // 2️⃣ Update credits_summary
+        $stmt2 = $conn->prepare("
+            UPDATE credits_summary
+            SET total_due = total_due + ?
+            WHERE customer_id = ?
+        ");
+
+        $stmt2->bind_param("di", $amount, $customer_id);
+
+        if (!$stmt2->execute()) {
+            throw new Exception($stmt2->error);
+        }
+
+        // 🔹 Commit
+        $conn->commit();
+
+        echo json_encode([
+            "success" => true,
+            "message" => "Transaction added successfully"
+        ]);
+
+    } catch (Exception $e) {
+
+        // 🔹 Rollback
+        $conn->rollback();
+
+        echo json_encode([
+            "success" => false,
+            "error" => $e->getMessage()
+        ]);
+    }
+
+    exit;
+}
+// =====================
 // ❌ INVALID ACTION
 // =====================
 echo json_encode(["error" => "Invalid action"]);
