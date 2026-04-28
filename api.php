@@ -163,14 +163,19 @@ if ($action == "credits") {
     exit;
 }
 // =====================
-// ➕ ADD CUSTOMER + INIT CREDIT
+// ➕ ADD CUSTOMER + CREDIT
 // =====================
 if ($action == "addCustomerWithCredit") {
 
-    $name = $_POST['name'] ?? null;
-    $phone = $_POST['phone'] ?? null;
-    $user_id = $_POST['user_id'] ?? null;
+    // 🔹 Read JSON input (if sent)
+    $input = json_decode(file_get_contents("php://input"), true);
 
+    // 🔹 Support both form-data and JSON
+    $name = $_POST['name'] ?? $input['name'] ?? null;
+    $phone = $_POST['phone'] ?? $input['phone'] ?? null;
+    $user_id = $_POST['user_id'] ?? $input['user_id'] ?? null;
+
+    // 🔹 Validate input
     if (!$name || !$phone || !$user_id) {
         echo json_encode([
             "success" => false,
@@ -179,10 +184,11 @@ if ($action == "addCustomerWithCredit") {
         exit;
     }
 
-    // Start transaction
+    // 🔹 Start transaction
     $conn->begin_transaction();
 
     try {
+
         // 1️⃣ Insert into customers
         $stmt1 = $conn->prepare("
             INSERT INTO customers (user_id, name, phone)
@@ -194,6 +200,7 @@ if ($action == "addCustomerWithCredit") {
             throw new Exception($stmt1->error);
         }
 
+        // Get new customer ID
         $customer_id = $stmt1->insert_id;
 
         // 2️⃣ Insert into credits_summary
@@ -207,7 +214,7 @@ if ($action == "addCustomerWithCredit") {
             throw new Exception($stmt2->error);
         }
 
-        // Commit
+        // 🔹 Commit transaction
         $conn->commit();
 
         echo json_encode([
@@ -218,6 +225,7 @@ if ($action == "addCustomerWithCredit") {
 
     } catch (Exception $e) {
 
+        // 🔹 Rollback on error
         $conn->rollback();
 
         echo json_encode([
