@@ -242,14 +242,14 @@ if ($action == "addCustomerWithCredit") {
     exit;
 }
 // =====================
-// ➕ ADD TRANSACTION + UPDATE CREDIT
+// ➕ ADD TRANSACTION + UPDATE CREDIT (UPSERT)
 // =====================
 if ($action == "addTransaction") {
 
     // 🔹 Read JSON input
     $input = json_decode(file_get_contents("php://input"), true);
 
-    // 🔹 Get values (supports JSON + form-data)
+    // 🔹 Support both JSON and form-data
     $customer_id = $_POST['customer_id'] ?? $input['customer_id'] ?? null;
     $user_id = $_POST['user_id'] ?? $input['user_id'] ?? null;
     $amount = $_POST['amount'] ?? $input['amount'] ?? null;
@@ -271,7 +271,7 @@ if ($action == "addTransaction") {
 
         // 1️⃣ Insert into transactions
         $stmt1 = $conn->prepare("
-            INSERT INTO transactions
+            INSERT INTO `transactions`
             (customer_id, user_id, amount, bill_json)
             VALUES (?, ?, ?, ?)
         ");
@@ -282,14 +282,14 @@ if ($action == "addTransaction") {
             throw new Exception($stmt1->error);
         }
 
-        // 2️⃣ Update credits_summary
+        // 2️⃣ UPSERT into credits_summary
         $stmt2 = $conn->prepare("
-            UPDATE credits_summary
-            SET total_due = total_due + ?
-            WHERE customer_id = ?
+            INSERT INTO credits_summary (customer_id, user_id, total_due)
+            VALUES (?, ?, ?)
+            ON DUPLICATE KEY UPDATE total_due = total_due + VALUES(total_due)
         ");
 
-        $stmt2->bind_param("di", $amount, $customer_id);
+        $stmt2->bind_param("iid", $customer_id, $user_id, $amount);
 
         if (!$stmt2->execute()) {
             throw new Exception($stmt2->error);
@@ -300,7 +300,11 @@ if ($action == "addTransaction") {
 
         echo json_encode([
             "success" => true,
-            "message" => "Transaction added successfully"
+            "message" => "Transaction added and credit updated",
+            "rows_affected" => [
+                "transactions" => $stmt1->affected_rows,
+                "credits_summary" => $stmt2->affected_rows
+            ]
         ]);
 
     } catch (Exception $e) {
