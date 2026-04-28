@@ -167,21 +167,26 @@ if ($action == "credits") {
 // =====================
 if ($action == "addCustomerWithCredit") {
 
-    // 🔹 Read JSON input (if sent)
+    // 🔹 Read JSON input (for App Inventor JSON)
     $input = json_decode(file_get_contents("php://input"), true);
 
-    // 🔹 Support both form-data and JSON
+    // 🔹 Support both JSON and form-data
     $name = $_POST['name'] ?? $input['name'] ?? null;
     $phone = $_POST['phone'] ?? $input['phone'] ?? null;
     $user_id = $_POST['user_id'] ?? $input['user_id'] ?? null;
 
-    // 🔹 Validate input
-    if (!$name || !$phone || !$user_id) {
+    // 🔹 Validate required fields (phone NOT required)
+    if (!$name || !$user_id) {
         echo json_encode([
             "success" => false,
-            "error" => "Missing parameters"
+            "error" => "Missing required fields"
         ]);
         exit;
+    }
+
+    // 🔹 Make phone optional (store NULL if empty)
+    if ($phone === "" || $phone === null) {
+        $phone = null;
     }
 
     // 🔹 Start transaction
@@ -200,7 +205,7 @@ if ($action == "addCustomerWithCredit") {
             throw new Exception($stmt1->error);
         }
 
-        // Get new customer ID
+        // Get inserted customer ID
         $customer_id = $stmt1->insert_id;
 
         // 2️⃣ Insert into credits_summary
