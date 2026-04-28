@@ -162,7 +162,72 @@ if ($action == "credits") {
     echo json_encode($data);
     exit;
 }
+// =====================
+// ➕ ADD CUSTOMER + INIT CREDIT
+// =====================
+if ($action == "addCustomerWithCredit") {
 
+    $name = $_POST['name'] ?? null;
+    $phone = $_POST['phone'] ?? null;
+    $user_id = $_POST['user_id'] ?? null;
+
+    if (!$name || !$phone || !$user_id) {
+        echo json_encode([
+            "success" => false,
+            "error" => "Missing parameters"
+        ]);
+        exit;
+    }
+
+    // Start transaction
+    $conn->begin_transaction();
+
+    try {
+        // 1️⃣ Insert into customers
+        $stmt1 = $conn->prepare("
+            INSERT INTO customers (user_id, name, phone)
+            VALUES (?, ?, ?)
+        ");
+        $stmt1->bind_param("iss", $user_id, $name, $phone);
+
+        if (!$stmt1->execute()) {
+            throw new Exception($stmt1->error);
+        }
+
+        $customer_id = $stmt1->insert_id;
+
+        // 2️⃣ Insert into credits_summary
+        $stmt2 = $conn->prepare("
+            INSERT INTO credits_summary (customer_id, user_id, total_due)
+            VALUES (?, ?, 0)
+        ");
+        $stmt2->bind_param("ii", $customer_id, $user_id);
+
+        if (!$stmt2->execute()) {
+            throw new Exception($stmt2->error);
+        }
+
+        // Commit
+        $conn->commit();
+
+        echo json_encode([
+            "success" => true,
+            "customer_id" => $customer_id,
+            "message" => "Customer added successfully"
+        ]);
+
+    } catch (Exception $e) {
+
+        $conn->rollback();
+
+        echo json_encode([
+            "success" => false,
+            "error" => $e->getMessage()
+        ]);
+    }
+
+    exit;
+}
 // =====================
 // ❌ INVALID ACTION
 // =====================
