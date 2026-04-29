@@ -242,7 +242,7 @@ if ($action == "addCustomerWithCredit") {
     exit;
 }
 // =====================
-// ➕ ADD TRANSACTION + UPDATE CREDIT (UPSERT)
+// ➕ ADD TRANSACTION + UPDATE CREDIT (WITH TYPE)
 // =====================
 if ($action == "addTransaction") {
 
@@ -251,11 +251,12 @@ if ($action == "addTransaction") {
 
     // 🔹 Support both JSON and form-data
     $customer_id = $_POST['customer_id'] ?? $input['customer_id'] ?? null;
-    $user_id = $_POST['user_id'] ?? $input['user_id'] ?? null;
-    $amount = $_POST['amount'] ?? $input['amount'] ?? null;
-    $bill_json = $_POST['bill_json'] ?? $input['bill_json'] ?? null;
+    $user_id     = $_POST['user_id'] ?? $input['user_id'] ?? null;
+    $amount      = $_POST['amount'] ?? $input['amount'] ?? null;
+    $bill_json   = $_POST['bill_json'] ?? $input['bill_json'] ?? null;
+    $type        = $_POST['type'] ?? $input['type'] ?? 'cash'; // default
 
-    // 🔹 Validate
+    // 🔹 Validate required fields
     if (!$customer_id || !$user_id || !$amount) {
         echo json_encode([
             "success" => false,
@@ -264,19 +265,25 @@ if ($action == "addTransaction") {
         exit;
     }
 
+    // 🔹 Validate type (ENUM safety)
+    $allowed_types = ['cash', 'credit', 'qr'];
+    if (!in_array($type, $allowed_types)) {
+        $type = 'cash';
+    }
+
     // 🔹 Start transaction
     $conn->begin_transaction();
 
     try {
 
-        // 1️⃣ Insert into transactions
+        // 1️⃣ Insert into transactions (with type)
         $stmt1 = $conn->prepare("
             INSERT INTO `transactions`
-            (customer_id, user_id, amount, bill_json)
-            VALUES (?, ?, ?, ?)
+            (customer_id, user_id, amount, bill_json, type)
+            VALUES (?, ?, ?, ?, ?)
         ");
 
-        $stmt1->bind_param("iids", $customer_id, $user_id, $amount, $bill_json);
+        $stmt1->bind_param("iidss", $customer_id, $user_id, $amount, $bill_json, $type);
 
         if (!$stmt1->execute()) {
             throw new Exception($stmt1->error);
@@ -300,11 +307,8 @@ if ($action == "addTransaction") {
 
         echo json_encode([
             "success" => true,
-            "message" => "Transaction added and credit updated",
-            "rows_affected" => [
-                "transactions" => $stmt1->affected_rows,
-                "credits_summary" => $stmt2->affected_rows
-            ]
+            "message" => "Transaction added successfully",
+            "type_used" => $type
         ]);
 
     } catch (Exception $e) {
