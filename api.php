@@ -321,6 +321,52 @@ if ($action == "addTransaction") {
     exit;
 }
 // =====================
+// 👤 FETCH USER PROFILE
+// =====================
+if ($action == "userProfile") {
+
+    $user_id = $_GET['user_id'] ?? null;
+
+    if (!$user_id) {
+        echo json_encode([
+            "success" => false,
+            "error" => "Missing user_id"
+        ]);
+        exit;
+    }
+
+    $stmt = $conn->prepare("
+        SELECT upi_id, upi_name
+        FROM user_profiles
+        WHERE user_id = ?
+        LIMIT 1
+    ");
+
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+
+    $result = $stmt->get_result();
+
+    if ($result->num_rows === 0) {
+        echo json_encode([
+            "success" => true,
+            "upi_id" => null,
+            "upi_name" => null
+        ]);
+        exit;
+    }
+
+    $data = $result->fetch_assoc();
+
+    echo json_encode([
+        "success" => true,
+        "upi_id" => $data['upi_id'],
+        "upi_name" => $data['upi_name']
+    ]);
+
+    exit;
+}
+// =====================
 // ❌ INVALID ACTION
 // =====================
 echo json_encode(["error" => "Invalid action"]);
