@@ -446,13 +446,20 @@ if ($action == "addPayment") {
     $type = 'payment';
 
     // 🔹 Validate
-    if (!$customer_id || !$user_id || !$amount) {
-        echo json_encode([
-            "success" => false,
-            "error" => "Missing required fields"
-        ]);
-        exit;
-    }
+if ($customer_id === null || $user_id === null || $amount === null) {
+    echo json_encode([
+        "success" => false,
+        "error" => "Missing required fields",
+        "debug" => [
+            "customer_id" => $customer_id,
+            "user_id" => $user_id,
+            "amount" => $amount,
+            "raw_input" => $input,
+            "_POST" => $_POST
+        ]
+    ]);
+    exit;
+}
 
     // 🔹 Start transaction
     $conn->begin_transaction();
