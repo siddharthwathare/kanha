@@ -257,13 +257,17 @@ if ($action == "addTransaction") {
     $type        = $_POST['type'] ?? $input['type'] ?? 'cash'; // default
 
     // 🔹 Validate required fields
-    if (!$customer_id || !$user_id || !$amount) {
-        echo json_encode([
-            "success" => false,
-            "error" => "Missing required fields"
-        ]);
-        exit;
-    }
+    if ($customer_id === null || $user_id === null || $amount === null) {
+    echo json_encode([
+        "success" => false,
+        "error" => "Missing required fields",
+        "debug" => [
+            "customer_id" => $customer_id,
+            "user_id" => $user_id,
+            "amount" => $amount
+        ]
+    ]);
+    exit;
 
     // 🔹 Validate type (ENUM safety)
     $allowed_types = ['cash', 'credit', 'qr'];
