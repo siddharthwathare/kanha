@@ -257,17 +257,13 @@ if ($action == "addTransaction") {
     $type        = $_POST['type'] ?? $input['type'] ?? 'cash'; // default
 
     // 🔹 Validate required fields
-    if ($customer_id === null || $user_id === null || $amount === null) {
-    echo json_encode([
-        "success" => false,
-        "error" => "Missing required fields",
-        "debug" => [
-            "customer_id" => $customer_id,
-            "user_id" => $user_id,
-            "amount" => $amount
-        ]
-    ]);
-    exit;
+    if (!$customer_id || !$user_id || !$amount) {
+        echo json_encode([
+            "success" => false,
+            "error" => "Missing required fields"
+        ]);
+        exit;
+    }
 
     // 🔹 Validate type (ENUM safety)
     $allowed_types = ['cash', 'credit', 'qr'];
@@ -424,89 +420,6 @@ if ($action == "addTransactionSimple") {
         ]);
 
     } catch (Exception $e) {
-
-        echo json_encode([
-            "success" => false,
-            "error" => $e->getMessage()
-        ]);
-    }
-
-    exit;
-}
-// =====================
-// ➖ ADD PAYMENT + UPDATE CREDIT
-// =====================
-if ($action == "addPayment") {
-
-    // 🔹 Read JSON input
-    $input = json_decode(file_get_contents("php://input"), true);
-
-    // 🔹 Get values
-    $customer_id = $_POST['customer_id'] ?? $input['customer_id'] ?? null;
-    $user_id     = $_POST['user_id'] ?? $input['user_id'] ?? null;
-    $amount      = $_POST['amount'] ?? $input['amount'] ?? null;
-
-    // 🔹 Force type = payment
-    $type = 'payment';
-
-    // 🔹 Validate
-    if (!$customer_id || !$user_id || !$amount) {
-        echo json_encode([
-            "success" => false,
-            "error" => "Missing required fields"
-        ]);
-        exit;
-    }
-
-    // 🔹 Start transaction
-    $conn->begin_transaction();
-
-    try {
-
-        // 1️⃣ Insert payment transaction
-        $stmt1 = $conn->prepare("
-            INSERT INTO `transactions`
-            (customer_id, user_id, amount, bill_json, type)
-            VALUES (?, ?, ?, NULL, ?)
-        ");
-
-        $stmt1->bind_param("iids", $customer_id, $user_id, $amount, $type);
-
-        if (!$stmt1->execute()) {
-            throw new Exception($stmt1->error);
-        }
-
-        // 2️⃣ Deduct from credits_summary
-        $stmt2 = $conn->prepare("
-            UPDATE credits_summary
-            SET total_due = total_due - ?
-            WHERE customer_id = ?
-        ");
-
-        $stmt2->bind_param("di", $amount, $customer_id);
-
-        if (!$stmt2->execute()) {
-            throw new Exception($stmt2->error);
-        }
-
-        // 🔹 Ensure customer exists
-        if ($stmt2->affected_rows == 0) {
-            throw new Exception("Customer not found in credits_summary");
-        }
-
-        // 🔹 Commit
-        $conn->commit();
-
-        echo json_encode([
-            "success" => true,
-            "message" => "Payment recorded successfully",
-            "type" => "payment"
-        ]);
-
-    } catch (Exception $e) {
-
-        // 🔹 Rollback
-        $conn->rollback();
 
         echo json_encode([
             "success" => false,
