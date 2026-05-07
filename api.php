@@ -242,84 +242,99 @@ if ($action == "addCustomerWithCredit") {
     exit;
 }
 // =====================
-// ➕ ADD TRANSACTION + UPDATE CREDIT (WITH TYPE)
+// ➕ ADD TRANSACTION + UPDATE CREDIT + STOCK
 // =====================
 if ($action == "addTransaction") {
 
-    // 🔹 Read JSON input
     $input = json_decode(file_get_contents("php://input"), true);
 
-    // 🔹 Support both JSON and form-data
     $customer_id = $_POST['customer_id'] ?? $input['customer_id'] ?? null;
     $user_id     = $_POST['user_id'] ?? $input['user_id'] ?? null;
     $amount      = $_POST['amount'] ?? $input['amount'] ?? null;
     $bill_json   = $_POST['bill_json'] ?? $input['bill_json'] ?? null;
-    $type        = $_POST['type'] ?? $input['type'] ?? 'cash'; // default
+    $type        = $_POST['type'] ?? $input['type'] ?? 'cash';
 
-    // 🔹 Validate required fields
     if (!$customer_id || !$user_id || !$amount) {
-        echo json_encode([
-            "success" => false,
-            "error" => "Missing required fields"
-        ]);
+        echo json_encode(["success" => false, "error" => "Missing required fields"]);
         exit;
     }
 
-    // 🔹 Validate type (ENUM safety)
     $allowed_types = ['cash', 'credit', 'qr'];
     if (!in_array($type, $allowed_types)) {
         $type = 'cash';
     }
 
-    // 🔹 Start transaction
     $conn->begin_transaction();
 
     try {
 
-        // 1️⃣ Insert into transactions (with type)
+        // Insert transaction
         $stmt1 = $conn->prepare("
             INSERT INTO `transactions`
             (customer_id, user_id, amount, bill_json, type)
             VALUES (?, ?, ?, ?, ?)
         ");
-
         $stmt1->bind_param("iidss", $customer_id, $user_id, $amount, $bill_json, $type);
 
         if (!$stmt1->execute()) {
             throw new Exception($stmt1->error);
         }
 
-        // 2️⃣ UPSERT into credits_summary
+        // Update credits
         $stmt2 = $conn->prepare("
             INSERT INTO credits_summary (customer_id, user_id, total_due)
             VALUES (?, ?, ?)
             ON DUPLICATE KEY UPDATE total_due = total_due + VALUES(total_due)
         ");
-
         $stmt2->bind_param("iid", $customer_id, $user_id, $amount);
 
         if (!$stmt2->execute()) {
             throw new Exception($stmt2->error);
         }
 
-        // 🔹 Commit
+        // 🔥 STOCK UPDATE
+        if ($bill_json) {
+            $items = json_decode($bill_json, true);
+
+            if (is_array($items)) {
+                foreach ($items as $item) {
+
+                    if (!isset($item['id']) || !isset($item['qty'])) {
+                        continue;
+                    }
+
+                    $product_id = (int)$item['id'];
+                    $qty = (int)$item['qty'];
+
+                    if ($product_id <= 0 || $qty <= 0) {
+                        continue;
+                    }
+
+                    $stmtStock = $conn->prepare("
+                        UPDATE products
+                        SET stock = stock - ?
+                        WHERE id = ?
+                    ");
+
+                    $stmtStock->bind_param("ii", $qty, $product_id);
+
+                    if (!$stmtStock->execute()) {
+                        throw new Exception($stmtStock->error);
+                    }
+                }
+            }
+        }
+
         $conn->commit();
 
         echo json_encode([
             "success" => true,
-            "message" => "Transaction added successfully",
-            "type_used" => $type
+            "message" => "Transaction added successfully"
         ]);
 
     } catch (Exception $e) {
-
-        // 🔹 Rollback
         $conn->rollback();
-
-        echo json_encode([
-            "success" => false,
-            "error" => $e->getMessage()
-        ]);
+        echo json_encode(["success" => false, "error" => $e->getMessage()]);
     }
 
     exit;
