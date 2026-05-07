@@ -555,6 +555,79 @@ if ($customer_id === null || $user_id === null || $amount === null) {
     exit;
 }
 // =====================
+// 📦 ADD STOCK
+// =====================
+if ($action == "addStock") {
+
+    // 🔹 Read JSON input
+    $input = json_decode(file_get_contents("php://input"), true);
+
+    // 🔹 Support JSON + form-data
+    $product_id = $_POST['id'] ?? $input['id'] ?? null;
+    $qty        = $_POST['qty'] ?? $input['qty'] ?? null;
+
+    // 🔹 Validate
+    if ($product_id === null || $qty === null) {
+
+        echo json_encode([
+            "success" => false,
+            "error" => "Missing required fields"
+        ]);
+
+        exit;
+    }
+
+    // 🔹 Convert to integers
+    $product_id = (int)$product_id;
+    $qty = (int)$qty;
+
+    // 🔹 Prevent invalid values
+    if ($product_id <= 0 || $qty <= 0) {
+
+        echo json_encode([
+            "success" => false,
+            "error" => "Invalid values"
+        ]);
+
+        exit;
+    }
+
+    try {
+
+        // 🔹 Update stock
+        $stmt = $conn->prepare("
+            UPDATE products
+            SET stock = stock + ?
+            WHERE id = ?
+        ");
+
+        $stmt->bind_param("ii", $qty, $product_id);
+
+        if (!$stmt->execute()) {
+            throw new Exception($stmt->error);
+        }
+
+        // 🔹 Optional check
+        if ($stmt->affected_rows == 0) {
+            throw new Exception("Product not found");
+        }
+
+        echo json_encode([
+            "success" => true,
+            "message" => "Stock updated successfully"
+        ]);
+
+    } catch (Exception $e) {
+
+        echo json_encode([
+            "success" => false,
+            "error" => $e->getMessage()
+        ]);
+    }
+
+    exit;
+}
+// =====================
 // ❌ INVALID ACTION
 // =====================
 echo json_encode(["error" => "Invalid action"]);
