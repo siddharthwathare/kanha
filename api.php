@@ -386,29 +386,22 @@ if ($action == "userProfile") {
     exit;
 }
 // =====================
-// ➕ ADD SIMPLE TRANSACTION (NO CUSTOMER)
+// ➕ ADD SIMPLE TRANSACTION + STOCK
 // =====================
 if ($action == "addTransactionSimple") {
 
-    // 🔹 Read JSON input
     $input = json_decode(file_get_contents("php://input"), true);
 
-    // 🔹 Support both JSON and form-data
     $user_id   = $_POST['user_id'] ?? $input['user_id'] ?? null;
     $amount    = $_POST['amount'] ?? $input['amount'] ?? null;
     $bill_json = $_POST['bill_json'] ?? $input['bill_json'] ?? null;
     $type      = $_POST['type'] ?? $input['type'] ?? 'cash';
 
-    // 🔹 Validate required fields
     if (!$user_id || !$amount) {
-        echo json_encode([
-            "success" => false,
-            "error" => "Missing required fields"
-        ]);
+        echo json_encode(["success" => false, "error" => "Missing required fields"]);
         exit;
     }
 
-    // 🔹 Validate type
     $allowed_types = ['cash', 'credit', 'qr'];
     if (!in_array($type, $allowed_types)) {
         $type = 'cash';
@@ -416,17 +409,48 @@ if ($action == "addTransactionSimple") {
 
     try {
 
-        // 🔹 Insert without customer_id
         $stmt = $conn->prepare("
             INSERT INTO `transactions`
             (customer_id, user_id, amount, bill_json, type)
             VALUES (NULL, ?, ?, ?, ?)
         ");
-
         $stmt->bind_param("idss", $user_id, $amount, $bill_json, $type);
 
         if (!$stmt->execute()) {
             throw new Exception($stmt->error);
+        }
+
+        // 🔥 STOCK UPDATE
+        if ($bill_json) {
+            $items = json_decode($bill_json, true);
+
+            if (is_array($items)) {
+                foreach ($items as $item) {
+
+                    if (!isset($item['id']) || !isset($item['qty'])) {
+                        continue;
+                    }
+
+                    $product_id = (int)$item['id'];
+                    $qty = (int)$item['qty'];
+
+                    if ($product_id <= 0 || $qty <= 0) {
+                        continue;
+                    }
+
+                    $stmtStock = $conn->prepare("
+                        UPDATE products
+                        SET stock = stock - ?
+                        WHERE id = ?
+                    ");
+
+                    $stmtStock->bind_param("ii", $qty, $product_id);
+
+                    if (!$stmtStock->execute()) {
+                        throw new Exception($stmtStock->error);
+                    }
+                }
+            }
         }
 
         echo json_encode([
@@ -435,11 +459,7 @@ if ($action == "addTransactionSimple") {
         ]);
 
     } catch (Exception $e) {
-
-        echo json_encode([
-            "success" => false,
-            "error" => $e->getMessage()
-        ]);
+        echo json_encode(["success" => false, "error" => $e->getMessage()]);
     }
 
     exit;
