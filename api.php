@@ -135,7 +135,8 @@ if ($action == "credits") {
     $stmt = $conn->prepare("
         SELECT 
             c.id, 
-            c.name, 
+            c.name,
+            c.phone,
             IFNULL(cs.total_due, 0) AS total_due
         FROM customers c
         LEFT JOIN credits_summary cs
