@@ -185,9 +185,9 @@ if ($action == "addCustomerWithCredit") {
         exit;
     }
 
-    // 🔹 Make phone optional (store NULL if empty)
+    // 🔹 Make phone optional (store 123 if empty)
     if ($phone === "" || $phone === null) {
-        $phone = null;
+        $phone = 123;
     }
 
     // 🔹 Start transaction
